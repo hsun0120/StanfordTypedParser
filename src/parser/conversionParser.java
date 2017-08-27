@@ -1,9 +1,13 @@
 package parser;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Scanner;
 import java.util.logging.Logger;
 
 import com.hankcs.hanlp.corpus.dependency.CoNll.CoNLLSentence;
@@ -16,17 +20,12 @@ import typedDependency.StanfordTypedDependency;
 public class conversionParser {
 	static final String SBV = "SBV";
 	static final String VOB = "VOB";
-	static final String IOB = "IOB";
-	static final String FOB = "FOB";
-	static final String DBL = "DBL";
 	static final String ATT = "ATT";
 	static final String ADV = "ADV";
-	static final String CMP = "CMP";
 	static final String COO = "COO";
 	static final String POB = "POB";
 	static final String LAD = "LAD";
 	static final String RAD = "RAD";
-	static final String IS = "IS";
 	static final String WP = "WP";
 	static final String HED = "HED";
 	
@@ -44,8 +43,6 @@ public class conversionParser {
 				new NeuralNetworkDependencyParser().enableDeprelTranslator(false);
         CoNLLSentence sentence = parser.parse(str);
         CoNLLWord[] wordArray = sentence.getWordArray();
-        StanfordTypedDependency[] depArray =
-        		new StanfordTypedDependency[wordArray.length];
         
         LinkedList<Integer> POBList = new LinkedList<>();
         LinkedList<Integer> dvpmodList = new LinkedList<>();
@@ -83,6 +80,7 @@ public class conversionParser {
         	            break;
         	  case HED: parsed[i] = new StanfordTypedDependency(wordArray[i],
         			  "root");
+        	            break;
         	  default: parsed[i] = new StanfordTypedDependency(wordArray[i],
         			  "dep");
         	}
@@ -105,12 +103,22 @@ public class conversionParser {
     	/* Handle Stanford Typed Dependencies that are independent of HanLP
     	 * dependencies
     	 */
+    	this.postProcess(wordArray, parsed);
     	
         return parsed;
 	}
 	
 	public void loadModalWords(String path) {
-		
+		try {
+			Scanner sc = new Scanner(new FileInputStream(path),
+					StandardCharsets.UTF_8.toString());
+			this.modalWords = new HashSet<>();
+			while(sc.hasNextLine()) 
+				this.modalWords.add(sc.nextLine());
+			sc.close();
+		} catch (FileNotFoundException e) {
+			logger.severe("Load modal word list failed!");
+		}
 	}
 	
 	private StanfordTypedDependency convertSBV(CoNLLWord word,
@@ -132,8 +140,7 @@ public class conversionParser {
 			else if(word.HEAD.CPOSTAG.equals("p"))
 				return new StanfordTypedDependency(word, "attr"); //Attribute
 		} else if(word.HEAD.CPOSTAG.equals("vshi") ||
-				word.HEAD.DEPREL.equals(SBV) || word.HEAD.DEPREL.equals(ADV) ||
-				word.CPOSTAG.startsWith("v"))
+				word.HEAD.DEPREL.equals(SBV) || word.HEAD.DEPREL.equals(ADV))
 			return new StanfordTypedDependency(word, "ccomp"); //Clausal complement
 		return new StanfordTypedDependency(word, "dobj"); //Direct object
 	}
@@ -149,9 +156,6 @@ public class conversionParser {
 		} else if(word.CPOSTAG.endsWith("q") &&
 				word.HEAD.CPOSTAG.startsWith("n")) // Classifier modifier
 			return new StanfordTypedDependency(word, "clf");
-		else if(word.CPOSTAG.startsWith("n") &&
-				word.HEAD.CPOSTAG.startsWith("n")) // Noun compound modifier
-			return new StanfordTypedDependency(word, "nn");
 		else if(word.CPOSTAG.startsWith("a") &&
 				word.HEAD.CPOSTAG.startsWith("n")) // Adjectival modifier
 			return new StanfordTypedDependency(word, "amod");
@@ -200,5 +204,24 @@ public class conversionParser {
 			return new StanfordTypedDependency(word, "dvpm");
 		}
 		return new StanfordTypedDependency(word, "dep");
+	}
+	
+	private void postProcess(CoNLLWord[] wordArray,
+			StanfordTypedDependency[] deps) {
+		for(int i = 0; i < wordArray.length; i++) {
+			/* Parenthetical modifier */
+			if(i + 1 < wordArray.length && wordArray[i + 1].LEMMA.equals("）"))
+				deps[i].setDep("prnmod");
+			else if(wordArray[i].LEMMA.endsWith("是") &&
+					!wordArray[i].CPOSTAG.startsWith("n")) //Copular
+				deps[i].setDep("cop");
+			else if(wordArray[i].CPOSTAG.equals("pbei"))
+				deps[i].setDep("pass"); //Passive marker
+			else if(wordArray[i].LEMMA.equals("所") ||
+					wordArray[i].LEMMA.equals("以") ||
+					wordArray[i].LEMMA.equals("而") ||
+					wordArray[i].LEMMA.equals("来"))
+				deps[i].setDep("prtmod");
+		}
 	}
 }

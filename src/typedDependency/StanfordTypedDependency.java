@@ -27,4 +27,10 @@ public class StanfordTypedDependency {
 	public void setDep(String dep) {
 		this.dep = dep;
 	}
+	
+	@Override
+	public String toString() {
+		return this.dep + "(" + this.word.HEAD.LEMMA + "," + this.word.LEMMA
+				+ ")";
+	}
 }

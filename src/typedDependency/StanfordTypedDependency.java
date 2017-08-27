@@ -23,4 +23,8 @@ public class StanfordTypedDependency {
 	public String getDep() {
 		return this.dep;
 	}
+	
+	public void setDep(String dep) {
+		this.dep = dep;
+	}
 }

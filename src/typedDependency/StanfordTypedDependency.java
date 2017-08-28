@@ -30,7 +30,10 @@ public class StanfordTypedDependency {
 	
 	@Override
 	public String toString() {
-		return this.dep + "(" + this.word.HEAD.LEMMA + "," + this.word.LEMMA
-				+ ")";
+		if(this.word.HEAD.LEMMA.equals("##ºËÐÄ##"))
+			return this.dep + "(" + "root-0" + "," + this.word.LEMMA +
+					"-" + this.word.ID + ")";
+		return this.dep + "(" + this.word.HEAD.LEMMA + "-" + this.word.HEAD.ID
+				+  "," + this.word.LEMMA + "-" + this.word.ID + ")";
 	}
 }

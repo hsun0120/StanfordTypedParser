@@ -222,6 +222,11 @@ public class conversionParser {
 					wordArray[i].LEMMA.equals("¶ø") ||
 					wordArray[i].LEMMA.equals("À´"))
 				deps[i].setDep("prtmod");
+			else if(deps[i].getDep().equals("dep") && 
+					(deps[i].getWord().HEAD.ID - deps[i].getWord().ID == 1) &&
+					deps[i].getWord().CPOSTAG.startsWith("n") &&
+					deps[i].getWord().HEAD.CPOSTAG.startsWith("n"))
+				deps[i].setDep("nn");
 		}
 	}
 }

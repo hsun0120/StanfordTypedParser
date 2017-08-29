@@ -2,13 +2,20 @@ package parser;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Scanner;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Logger;
+
+import org.json.JSONObject;
+
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 
 import com.hankcs.hanlp.corpus.dependency.CoNll.CoNLLSentence;
 import com.hankcs.hanlp.corpus.dependency.CoNll.CoNLLWord;
@@ -17,7 +24,7 @@ import com.hankcs.hanlp.dependency.nnparser.NeuralNetworkDependencyParser;
 
 import typedDependency.StanfordTypedDependency;
 
-public class conversionParser {
+public class conversionParser implements Runnable{
 	static final String SBV = "SBV";
 	static final String VOB = "VOB";
 	static final String ATT = "ATT";
@@ -29,18 +36,81 @@ public class conversionParser {
 	static final String WP = "WP";
 	static final String HED = "HED";
 	
+	static final String END = "END";
+	
 	static final Logger logger = Logger.getGlobal();
 	
-	private HashSet<String> modalWords;
+	private static HashSet<String> modalWords;
+	private LinkedBlockingQueue<String> lbq;
+	private List<String> fields;
+	private String path;
+	private String idField;
+	
+	private IDependencyParser parser =
+			new NeuralNetworkDependencyParser().enableDeprelTranslator(false);
+	
+	public conversionParser(LinkedBlockingQueue<String> lbq, List<String>
+	fields, String path, String idField) {
+		this.lbq = lbq;
+		this.fields = fields;
+		this.path = path;
+		this.idField = idField;
+	}
+	
+	@Override
+	public void run() {
+		while(true) {
+			String text;
+			try {
+				text = this.lbq.take();
+				if(text.equals(END)) { //Check end indicator
+					lbq.put(text);
+					return; //Kill current thread
+				}
+			} catch (InterruptedException e1) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			JSONObject json = new JSONObject(text);
+			String filename = json.getString(this.idField);
+			
+			try (PrintWriter writer = new PrintWriter(new
+					OutputStreamWriter(new FileOutputStream(path + "/" +
+			filename), StandardCharsets.UTF_8))){
+				ListIterator<String> it = this.fields.listIterator();
+				while(it.hasNext()) {
+					String field = it.next();
+					String content = json.get(field).toString();
+					/* String clean-up */
+					int start = content.indexOf('\\');
+					if(start >= 0)
+						content = content.substring(start);
+					content = content.replaceAll("\",\"", "");
+					content = content.replaceAll("\"", "");
+					content = content.replaceAll("\\\\", "");
+					content = content.replaceAll("\\[", "");
+					content = content.replaceAll("\\]", "");
+					content = content.replaceAll("\\{", "");
+					content = content.replaceAll("\\}", "");
+					
+					writer.write(field + "{\n");
+					String[] sentences = content.split("¡£");
+					for(String sentence: sentences)
+						writer.write(this.formatOutput(sentence));
+					writer.write("}\n");
+					writer.write("\n");
+				}
+			} catch (FileNotFoundException ex) {
+				logger.severe("File not found!");
+			}
+		}
+	}
 	
 	public StanfordTypedDependency[] parse(String str) {
 		if(modalWords == null) {
 			logger.warning("Please load modal word list first!");
 			return null;
 		}
-		
-		IDependencyParser parser =
-				new NeuralNetworkDependencyParser().enableDeprelTranslator(false);
         CoNLLSentence sentence = parser.parse(str);
         CoNLLWord[] wordArray = sentence.getWordArray();
         
@@ -109,12 +179,14 @@ public class conversionParser {
 	}
 	
 	public void loadModalWords(String path) {
+		if(conversionParser.modalWords != null)
+			return;
 		try {
 			Scanner sc = new Scanner(new FileInputStream(path),
 					StandardCharsets.UTF_8.toString());
-			this.modalWords = new HashSet<>();
+			conversionParser.modalWords = new HashSet<>();
 			while(sc.hasNextLine()) 
-				this.modalWords.add(sc.nextLine());
+				conversionParser.modalWords.add(sc.nextLine());
 			sc.close();
 		} catch (FileNotFoundException e) {
 			logger.severe("Load modal word list failed!");
@@ -172,7 +244,7 @@ public class conversionParser {
 		/* Modal verb modifier */
 		else if(word.POSTAG.startsWith("v") &&
 				word.HEAD.POSTAG.startsWith("v") &&
-				this.modalWords.contains(word.LEMMA))
+				conversionParser.modalWords.contains(word.LEMMA))
 			return new StanfordTypedDependency(word, "mmod");
 		return new StanfordTypedDependency(word, "advmod");
 	}
@@ -230,5 +302,22 @@ public class conversionParser {
 					deps[i].getWord().HEAD.POSTAG.equals("vn")))
 				deps[i].setDep("nn");
 		}
+	}
+	
+	private String formatOutput(String sentence) {
+		if(sentence == null || sentence.length() == 0) return "";
+		
+		StanfordTypedDependency[] deps = this.parse(sentence);
+		StringBuilder str = new StringBuilder();
+		str.append("[");
+		for(int i = 0; i < deps.length - 1; i++)
+			str.append(deps[i] + ", ");
+		str.append(deps[deps.length - 1] + "]");
+		str.append("\n");
+		for(int i = 0; i < deps.length; i++)
+			str.append(deps[i].getWord().LEMMA + "\\" + 
+		deps[i].getWord().POSTAG + " ");
+		str.append("\n\n");
+		return str.toString();
 	}
 }

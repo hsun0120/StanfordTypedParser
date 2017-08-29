@@ -58,7 +58,7 @@ public class conversionParser {
         	  case ATT:
         		  /* Associate modifier */
         		  if(i + 1 < wordArray.length &&
-        				  wordArray[i + 1].CPOSTAG.equals("ude1"))
+        				  wordArray[i + 1].POSTAG.equals("ude1"))
         			  parsed[i] = new
         			  StanfordTypedDependency(wordArray[i + 1], "assmod");
         		  else
@@ -126,80 +126,80 @@ public class conversionParser {
 		if(word.HEAD.DEPREL.equals(POB)) //POB case
 			POBList.add(word.ID - 1);
 		
-		if(word.CPOSTAG.equals("vshi"))
+		if(word.POSTAG.equals("vshi"))
 			return new StanfordTypedDependency(word, "top"); //Topic
 		return new StanfordTypedDependency(word, "nsubj");
 	}
 	
 	private StanfordTypedDependency convertVOB(CoNLLWord word) {
-		if(word.CPOSTAG.equals("m"))
+		if(word.POSTAG.equals("m"))
 			return new StanfordTypedDependency(word, "range");
-		else if(word.CPOSTAG.endsWith("q")) {
-			if(word.HEAD.CPOSTAG.startsWith("v"))
+		else if(word.POSTAG.endsWith("q")) {
+			if(word.HEAD.POSTAG.startsWith("v"))
 				return new StanfordTypedDependency(word, "range");
-			else if(word.HEAD.CPOSTAG.equals("p"))
+			else if(word.HEAD.POSTAG.equals("p"))
 				return new StanfordTypedDependency(word, "attr"); //Attribute
-		} else if(word.HEAD.CPOSTAG.equals("vshi") ||
+		} else if(word.HEAD.POSTAG.equals("vshi") ||
 				word.HEAD.DEPREL.equals(SBV) || word.HEAD.DEPREL.equals(ADV))
 			return new StanfordTypedDependency(word, "ccomp"); //Clausal complement
 		return new StanfordTypedDependency(word, "dobj"); //Direct object
 	}
 	
 	private StanfordTypedDependency convertATT(CoNLLWord word) {
-		if(word.CPOSTAG.startsWith("rz"))
+		if(word.POSTAG.startsWith("rz"))
 			return new StanfordTypedDependency(word, "det"); //Determiner
-		else if(word.CPOSTAG.equals("m")) {
+		else if(word.POSTAG.equals("m")) {
 			if(word.HEAD.POSTAG.equals("m")) // Ordinal number modifier
 				return new StanfordTypedDependency(word, "ordmod");
 			else if(word.HEAD.POSTAG.endsWith("q")) //Number modifier
 				return new StanfordTypedDependency(word, "nummod");
-		} else if(word.CPOSTAG.endsWith("q") &&
-				word.HEAD.CPOSTAG.startsWith("n")) // Classifier modifier
+		} else if(word.POSTAG.endsWith("q") &&
+				word.HEAD.POSTAG.startsWith("n")) // Classifier modifier
 			return new StanfordTypedDependency(word, "clf");
-		else if(word.CPOSTAG.startsWith("a") &&
-				word.HEAD.CPOSTAG.startsWith("n")) // Adjectival modifier
+		else if(word.POSTAG.startsWith("a") &&
+				word.HEAD.POSTAG.startsWith("n")) // Adjectival modifier
 			return new StanfordTypedDependency(word, "amod");
 		return new StanfordTypedDependency(word, "dep");
 	}
 	
 	private StanfordTypedDependency convertADV(CoNLLWord word) {
-		if(word.CPOSTAG.equals("p")) // Prepositional modifier
+		if(word.POSTAG.equals("p")) // Prepositional modifier
 			return new StanfordTypedDependency(word, "prep");
-		else if(word.CPOSTAG.equals("pba"))
+		else if(word.POSTAG.equals("pba"))
 			return new StanfordTypedDependency(word, "ba"); //"ba" construction
-		else if(word.CPOSTAG.startsWith("t")) //Temporal modifier
+		else if(word.POSTAG.startsWith("t")) //Temporal modifier
 			return new StanfordTypedDependency(word, "tmod");
 		/* Modal verb modifier */
-		else if(word.CPOSTAG.startsWith("v") &&
-				word.HEAD.CPOSTAG.startsWith("v") &&
-				this.modalWords.contains(word.HEAD.LEMMA))
+		else if(word.POSTAG.startsWith("v") &&
+				word.HEAD.POSTAG.startsWith("v") &&
+				this.modalWords.contains(word.LEMMA))
 			return new StanfordTypedDependency(word, "mmod");
 		return new StanfordTypedDependency(word, "advmod");
 	}
 	
 	private StanfordTypedDependency convertCOO(CoNLLWord word) {
 		/* Coordinated verb compound modifier */
-		if(word.CPOSTAG.startsWith("v") && word.HEAD.CPOSTAG.startsWith("v"))
+		if(word.POSTAG.startsWith("v") && word.HEAD.POSTAG.startsWith("v"))
 			return new StanfordTypedDependency(word, "comod");
 		return new StanfordTypedDependency(word, "conj"); //Conjunct
 	}
 	
 	private StanfordTypedDependency convertLAD(CoNLLWord word) {
-		if(word.CPOSTAG.equals("cc")) //Coordinating conjunction
+		if(word.POSTAG.equals("cc")) //Coordinating conjunction
 			return new StanfordTypedDependency(word, "cc");
 		return new StanfordTypedDependency(word, "dep");
 	}
 	
 	private StanfordTypedDependency convertRAD(CoNLLWord word,
 			List<Integer> dvpmodList) {
-		if(word.CPOSTAG.equals("ude1")) //Associative marker
+		if(word.POSTAG.equals("ude1")) //Associative marker
 			return new StanfordTypedDependency(word, "assm");
 		/* Aspect marker */
-		else if(word.CPOSTAG.equals("ule") || word.CPOSTAG.equals("uguo"))
+		else if(word.POSTAG.equals("ule") || word.POSTAG.equals("uguo"))
 			return new StanfordTypedDependency(word, "asp");
-		else if(word.CPOSTAG.equals("udeng")) //Etc modifier
+		else if(word.POSTAG.equals("udeng")) //Etc modifier
 			return new StanfordTypedDependency(word, "etc");
-		else if(word.CPOSTAG.equals("ude2")) { //Manner DE modifier
+		else if(word.POSTAG.equals("ude2")) { //Manner DE modifier
 			dvpmodList.add(word.HEAD.ID - 1);
 			return new StanfordTypedDependency(word, "dvpm");
 		}
@@ -213,9 +213,9 @@ public class conversionParser {
 			if(i + 1 < wordArray.length && wordArray[i + 1].LEMMA.equals("£©"))
 				deps[i].setDep("prnmod");
 			else if(wordArray[i].LEMMA.endsWith("ÊÇ") &&
-					!wordArray[i].CPOSTAG.startsWith("n")) //Copular
+					!wordArray[i].POSTAG.startsWith("n")) //Copular
 				deps[i].setDep("cop");
-			else if(wordArray[i].CPOSTAG.equals("pbei"))
+			else if(wordArray[i].POSTAG.equals("pbei"))
 				deps[i].setDep("pass"); //Passive marker
 			else if(wordArray[i].LEMMA.equals("Ëù") ||
 					wordArray[i].LEMMA.equals("ÒÔ") ||
@@ -224,8 +224,10 @@ public class conversionParser {
 				deps[i].setDep("prtmod");
 			else if(deps[i].getDep().equals("dep") && 
 					(deps[i].getWord().HEAD.ID - deps[i].getWord().ID == 1) &&
-					deps[i].getWord().CPOSTAG.startsWith("n") &&
-					deps[i].getWord().HEAD.CPOSTAG.startsWith("n"))
+					(deps[i].getWord().POSTAG.startsWith("n") ||
+					deps[i].getWord().POSTAG.equals("vn")) &&
+					(deps[i].getWord().HEAD.POSTAG.startsWith("n") ||
+					deps[i].getWord().HEAD.POSTAG.equals("vn")))
 				deps[i].setDep("nn");
 		}
 	}

@@ -54,7 +54,7 @@ public class demoConversionParser {
 		str.append("\n");
 		for(int i = 0; i < deps.length; i++)
 			str.append(deps[i].getWord().LEMMA + "\\" + 
-		deps[i].getWord().CPOSTAG + " ");
+		deps[i].getWord().POSTAG + " ");
 		str.append("\n");
 		return str.toString();
 	}

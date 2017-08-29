@@ -37,6 +37,9 @@ public class conversionParser implements Runnable{
 	static final String HED = "HED";
 	
 	static final String END = "END";
+	static final String HEADER = "docID,sentenceID,tokenID,tokenOffset,"
+			+ "tokenText,finePOS,POS,EntityType,EntityIOB,RelationType,"
+			+ "RelationObject\n";
 	
 	static final Logger logger = Logger.getGlobal();
 	
@@ -73,11 +76,15 @@ public class conversionParser implements Runnable{
 			}
 			JSONObject json = new JSONObject(text);
 			String filename = json.getString(this.idField);
+			int end = filename.indexOf(".");
+			String fileID = filename.substring(0, end);
+			filename = fileID + ".csv";
 			
 			try (PrintWriter writer = new PrintWriter(new
 					OutputStreamWriter(new FileOutputStream(path + "/" +
 			filename), StandardCharsets.UTF_8))){
 				ListIterator<String> it = this.fields.listIterator();
+				int sentenceID = 0;
 				while(it.hasNext()) {
 					String field = it.next();
 					String content = json.get(field).toString();
@@ -93,11 +100,13 @@ public class conversionParser implements Runnable{
 					content = content.replaceAll("\\{", "");
 					content = content.replaceAll("\\}", "");
 					
-					writer.write(field + "{\n");
 					String[] sentences = content.split("¡£");
-					for(String sentence: sentences)
-						writer.write(this.formatOutput(sentence));
-					writer.write("}\n");
+					for(String sentence: sentences) {
+						if(sentence == null || sentence.length() == 0)
+							continue;
+						writer.write(this.formatOutput(fileID, sentence,
+								sentenceID++));
+					}
 					writer.write("\n");
 				}
 			} catch (FileNotFoundException ex) {
@@ -130,7 +139,7 @@ public class conversionParser implements Runnable{
         		  if(i + 1 < wordArray.length &&
         				  wordArray[i + 1].POSTAG.equals("ude1"))
         			  parsed[i] = new
-        			  StanfordTypedDependency(wordArray[i + 1], "assmod");
+        			  StanfordTypedDependency(wordArray[i], "assmod");
         		  else
         			  parsed[i] = this.convertATT(wordArray[i]);
         		        break;
@@ -282,7 +291,7 @@ public class conversionParser implements Runnable{
 			StanfordTypedDependency[] deps) {
 		for(int i = 0; i < wordArray.length; i++) {
 			/* Parenthetical modifier */
-			if(i + 1 < wordArray.length && wordArray[i + 1].LEMMA.equals("£©"))
+			if(i + 1 < wordArray.length && wordArray[i + 1].LEMMA.equals(")"))
 				deps[i].setDep("prnmod");
 			else if(wordArray[i].LEMMA.endsWith("ÊÇ") &&
 					!wordArray[i].POSTAG.startsWith("n")) //Copular
@@ -304,20 +313,20 @@ public class conversionParser implements Runnable{
 		}
 	}
 	
-	private String formatOutput(String sentence) {
+	private String formatOutput(String docID, String sentence, int
+			sentenceID) {
 		if(sentence == null || sentence.length() == 0) return "";
 		
 		StanfordTypedDependency[] deps = this.parse(sentence);
 		StringBuilder str = new StringBuilder();
-		str.append("[");
-		for(int i = 0; i < deps.length - 1; i++)
-			str.append(deps[i] + ", ");
-		str.append(deps[deps.length - 1] + "]");
+		str.append(HEADER);
+		int offset = 0;
+		for(int i = 0; i < deps.length; i++) {
+			str.append(docID + " ," + sentenceID + " ," + 
+		        deps[i].toTableEntry(offset));
+			offset += (deps[i].getWord().LEMMA.length() + 1);
+		}
 		str.append("\n");
-		for(int i = 0; i < deps.length; i++)
-			str.append(deps[i].getWord().LEMMA + "\\" + 
-		deps[i].getWord().POSTAG + " ");
-		str.append("\n\n");
 		return str.toString();
 	}
 }

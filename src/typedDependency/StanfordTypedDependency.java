@@ -36,4 +36,26 @@ public class StanfordTypedDependency {
 		return this.dep + "(" + this.word.HEAD.LEMMA + "-" + this.word.HEAD.ID
 				+  "," + this.word.LEMMA + "-" + this.word.ID + ")";
 	}
+	
+	public String toTableEntry(int offset) {
+		String entity = "NULL";
+		if(this.word.POSTAG.startsWith("nt"))
+			entity = "ORG";
+		else if(this.word.POSTAG.startsWith("nr"))
+			entity= "PERSON";
+		else if(this.word.POSTAG.startsWith("ns"))
+			entity = "LOCATION";
+		String entityIOB = "O";
+		if(this.dep.equals("nn"))
+			entityIOB = "I";
+		else if(this.word.POSTAG.startsWith("n"))
+			entityIOB = "B";
+		String object = this.word.HEAD.LEMMA;
+		if(object.equals("##ºËÐÄ##"))
+			object = this.word.LEMMA;
+		
+		return (this.word.ID - 1) + " ," + offset + " ," + this.word.LEMMA + 
+				" ," + this.word.POSTAG + " ," + this.word.CPOSTAG + ", " +
+		entity + " ," + entityIOB + " ," + dep + ", " + object + "\n";
+	}
 }

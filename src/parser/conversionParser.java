@@ -90,8 +90,8 @@ public class conversionParser implements Runnable{
 					String content = json.get(field).toString();
 					/* String clean-up */
 					int start = content.indexOf('\\');
-					if(start >= 0)
-						content = content.substring(start);
+					if(start < 0) continue; //Empty field
+					content = content.substring(start);
 					content = content.replaceAll("\",\"", "");
 					content = content.replaceAll("\"", "");
 					content = content.replaceAll("\\\\", "");

@@ -1,8 +1,9 @@
 package parser;
 
+import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -15,6 +16,8 @@ import java.util.logging.Logger;
 import org.json.JSONObject;
 
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 
 import com.hankcs.hanlp.corpus.dependency.CoNll.CoNLLSentence;
@@ -40,10 +43,13 @@ public class conversionParser implements Runnable{
 	static final String HEADER = "docID,sentenceID,tokenID,tokenOffset,"
 			+ "tokenText,finePOS,POS,EntityType,EntityIOB,RelationType,"
 			+ "RelationObject\n";
+	static final int MAX = 4;
+	static final int OFFSET = 2;
 	
 	static final Logger logger = Logger.getGlobal();
 	
 	private static HashSet<String> modalWords;
+	private static HashSet<String> govName;
 	private LinkedBlockingQueue<String> lbq;
 	private List<String> fields;
 	private String path;
@@ -80,14 +86,19 @@ public class conversionParser implements Runnable{
 			String fileID = filename.substring(0, end);
 			filename = fileID + ".csv";
 			
-			try (PrintWriter writer = new PrintWriter(new
+			try (BufferedWriter writer = new BufferedWriter(new
 					OutputStreamWriter(new FileOutputStream(path + "/" +
 			filename), StandardCharsets.UTF_8))){
+				writer.write('\ufeff');
 				ListIterator<String> it = this.fields.listIterator();
 				int sentenceID = 0;
 				while(it.hasNext()) {
 					String field = it.next();
+					if(field.equals(this.idField)) continue;
+					
+					writer.write(field + ":\r\n");
 					String content = json.get(field).toString();
+					if(content == null || content.length() == 0) continue;
 					/* String clean-up */
 					int start = content.indexOf('\\');
 					if(start < 0) continue; //Empty field
@@ -104,20 +115,22 @@ public class conversionParser implements Runnable{
 					for(String sentence: sentences) {
 						if(sentence == null || sentence.length() == 0)
 							continue;
+						writer.write('\ufeff');
 						writer.write(this.formatOutput(fileID, sentence,
 								sentenceID++));
 					}
 					writer.write("\n");
 				}
-			} catch (FileNotFoundException ex) {
-				logger.severe("File not found!");
+			} catch (IOException ex) {
+				logger.exiting("conversionParser", "run", ex);
 			}
 		}
 	}
 	
 	public StanfordTypedDependency[] parse(String str) {
-		if(modalWords == null) {
-			logger.warning("Please load modal word list first!");
+		if(modalWords == null || govName == null) {
+			logger.warning("Please load modal word list and/or government "
+					+ "institution list first!");
 			return null;
 		}
         CoNLLSentence sentence = parser.parse(str);
@@ -202,6 +215,20 @@ public class conversionParser implements Runnable{
 		}
 	}
 	
+	public void loadGovList(String filename) {
+		try {
+			Scanner sc = new Scanner(new InputStreamReader(new 
+					FileInputStream(filename), "UTF-8"));
+			conversionParser.govName = new HashSet<>();
+			while(sc.hasNextLine()) {
+				conversionParser.govName.add(sc.nextLine());
+			}
+			sc.close();	
+		} catch (UnsupportedEncodingException | FileNotFoundException e) {
+			logger.throwing("conversionParser", "loadGovList", e);
+		}
+	}
+	
 	private StanfordTypedDependency convertSBV(CoNLLWord word,
 			LinkedList<Integer> POBList) {
 		if(word.HEAD.DEPREL.equals(POB)) //POB case
@@ -218,17 +245,19 @@ public class conversionParser implements Runnable{
 		else if(word.POSTAG.endsWith("q")) {
 			if(word.HEAD.POSTAG.startsWith("v"))
 				return new StanfordTypedDependency(word, "range");
-			else if(word.HEAD.POSTAG.equals("p"))
-				return new StanfordTypedDependency(word, "attr"); //Attribute
+			else if(word.HEAD.POSTAG.equals("p")) //Attribute
+				return new StanfordTypedDependency(word, "attr");
 		} else if(word.HEAD.POSTAG.equals("vshi") ||
 				word.HEAD.DEPREL.equals(SBV) || word.HEAD.DEPREL.equals(ADV))
-			return new StanfordTypedDependency(word, "ccomp"); //Clausal complement
-		return new StanfordTypedDependency(word, "dobj"); //Direct object
+			/* Clausal complement */
+			return new StanfordTypedDependency(word, "ccomp");
+		/* Direct object */
+		return new StanfordTypedDependency(word, "dobj");
 	}
 	
 	private StanfordTypedDependency convertATT(CoNLLWord word) {
-		if(word.POSTAG.startsWith("rz"))
-			return new StanfordTypedDependency(word, "det"); //Determiner
+		if(word.POSTAG.startsWith("rz")) //Determiner
+			return new StanfordTypedDependency(word, "det");
 		else if(word.POSTAG.equals("m")) {
 			if(word.HEAD.POSTAG.equals("m")) // Ordinal number modifier
 				return new StanfordTypedDependency(word, "ordmod");
@@ -246,8 +275,8 @@ public class conversionParser implements Runnable{
 	private StanfordTypedDependency convertADV(CoNLLWord word) {
 		if(word.POSTAG.equals("p")) // Prepositional modifier
 			return new StanfordTypedDependency(word, "prep");
-		else if(word.POSTAG.equals("pba"))
-			return new StanfordTypedDependency(word, "ba"); //"ba" construction
+		else if(word.POSTAG.equals("pba")) //"ba" construction
+			return new StanfordTypedDependency(word, "ba");
 		else if(word.POSTAG.startsWith("t")) //Temporal modifier
 			return new StanfordTypedDependency(word, "tmod");
 		/* Modal verb modifier */
@@ -320,13 +349,56 @@ public class conversionParser implements Runnable{
 		StanfordTypedDependency[] deps = this.parse(sentence);
 		StringBuilder str = new StringBuilder();
 		str.append(HEADER);
+		this.markGovCompound(deps);
 		int offset = 0;
 		for(int i = 0; i < deps.length; i++) {
 			str.append(docID + " ," + sentenceID + " ," + 
-		        deps[i].toTableEntry(offset));
+		        deps[i].toTableEntry(offset, deps));
 			offset += (deps[i].getWord().LEMMA.length() + 1);
 		}
 		str.append("\n");
 		return str.toString();
+	}
+	
+	private void markGovCompound(StanfordTypedDependency[] deps) {
+		int index = deps.length - 1;
+		while(index > 0) {
+			if(deps[index].getWord().POSTAG.equals("nto")) {
+				deps[index].setIsGov();
+				index--;
+			} else if ((deps[index].getWord().POSTAG.startsWith("nt") ||
+					deps[index].getWord().POSTAG.startsWith("ni")) && 
+					this.isGovTerm(deps[index].getWord().LEMMA)) {
+				deps[index].setIsGov();
+				if(index == 0) return;
+				
+				StanfordTypedDependency tmp = deps[--index];
+				while(tmp.getDep().equals("nn")) {
+					tmp.setIsGov();
+					if (tmp.getWord().POSTAG.startsWith("ns") ||
+							tmp.getWord().LEMMA.equals("È«¹ú")) {
+						index--;
+						break;
+					}
+					--index;
+					if(index < 0) break;
+					tmp = deps[index];
+				}
+			} 
+			else
+				index--;
+		}
+	}
+	
+	private boolean isGovTerm(String term) {
+		if(term.length() < 1) return false;
+		
+		for(int i = 1; i <= MAX; i++) {
+			if(term.length() - i < 0) return false;
+			if(govName.contains(term.substring(term.length() - i,
+					term.length())))
+				return true;
+		}
+		return false;
 	}
 }

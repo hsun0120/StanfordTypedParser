@@ -6,19 +6,22 @@ import java.util.LinkedList;
 
 public class demoConversionParser {
 	public static void main(String[] args) {
-		File folder = new File(args[0]);
-	    String[] fileList = folder.list();
-	    for(int i = 0; i < fileList.length; i++)
-	    	fileList[i] = args[0] + "/" + fileList[i];
 	    LinkedList<String> fields = new LinkedList<>();
 	    fields.add("holding");
 	    fields.add("facts");
 	    fields.add("parties");
 	    
 	    conversionManager cm = new conversionManager();
+	    File folder = new File(args[0]);
+	    String[] fileList = folder.list();
+	    for(int i = 0; i < fileList.length; i++)
+	    	fileList[i] = args[0] + "/" + fileList[i];
+	    
+	    cm.setConnection("awesome.sdsc.edu", "courtCase", "CourtDoc");
 	    long start = System.nanoTime();
 	    try {
-			cm.convert(fileList, fields, args[1], "file_id");
+			//cm.convert(fields, args[0], "file_id");
+	    	cm.convert(fileList, fields, args[1], "file_id");
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}

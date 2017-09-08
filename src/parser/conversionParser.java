@@ -352,7 +352,7 @@ public class conversionParser implements Runnable{
 		this.markGovCompound(deps);
 		int offset = 0;
 		for(int i = 0; i < deps.length; i++) {
-			str.append(docID + " ," + sentenceID + " ," + 
+			str.append(docID + "," + sentenceID + "," + 
 		        deps[i].toTableEntry(offset, deps));
 			offset += (deps[i].getWord().LEMMA.length() + 1);
 		}
@@ -392,6 +392,7 @@ public class conversionParser implements Runnable{
 	
 	private boolean isGovTerm(String term) {
 		if(term.length() < 1) return false;
+		if(term.endsWith("ÊÂÎñËù")) return false;
 		
 		for(int i = 1; i <= MAX; i++) {
 			if(term.length() - i < 0) return false;

@@ -71,8 +71,8 @@ public class StanfordTypedDependency {
 		if(tokenText.equals(","))
 			tokenText = "\",\"";
 		
-		return (this.word.ID - 1) + " ," + offset + " ," + tokenText + 
-				" ," + this.word.POSTAG + " ," + this.word.CPOSTAG + ", " +
-		entity + " ," + entityIOB + " ," + dep + ", " + object + "\r\n";
+		return (this.word.ID - 1) + "," + offset + "," + tokenText + 
+				"," + this.word.POSTAG + "," + this.word.CPOSTAG + "," +
+		entity + "," + entityIOB + "," + dep + "," + object + "\r\n";
 	}
 }
